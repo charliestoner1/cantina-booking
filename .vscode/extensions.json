@@ -1,0 +1,30 @@
+{
+  "recommendations": [
+    // Essential for this project
+    "esbenp.prettier-vscode",           // Code formatting
+    "dbaeumer.vscode-eslint",           // Linting
+    "prisma.prisma",                    // Prisma schema support
+    "bradlc.vscode-tailwindcss",        // Tailwind IntelliSense
+    "dsznajder.es7-react-js-snippets",  // React snippets
+    
+    // Highly recommended
+    "formulahendry.auto-rename-tag",     // Auto rename HTML/JSX tags
+    "naumovs.color-highlight",           // Highlight colors in code
+    "aaron-bond.better-comments",        // Colored comments
+    "streetsidesoftware.code-spell-checker", // Spell checker
+    "usernamehw.errorlens",             // Inline error messages
+    "yoavbls.pretty-ts-errors",         // Better TypeScript errors
+    
+    // Database tools
+    "cweijan.vscode-postgresql-client2", // PostgreSQL client
+    "qwtel.sqlite-viewer",               // View SQLite files
+    
+    // Git
+    "mhutchie.git-graph",                // Git graph visualization
+    "eamodio.gitlens",                   // Git lens
+    
+    // Icons and themes (optional but nice)
+    "PKief.material-icon-theme",         // Better file icons
+    "zhuangtongfa.material-theme"        // Material theme
+  ]
+}
