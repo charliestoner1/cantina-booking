@@ -2,6 +2,13 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { prisma } from '../lib/prisma'
 
+async function fetchTableTypes() {
+  const tables = await prisma.tableType.findMany({
+    orderBy: { displayOrder: 'asc' },
+  })
+  return tables
+}
+
 // This is a server component - it runs on the server
 export default async function Home() {
   // Fetch table types from database
