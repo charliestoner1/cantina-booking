@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,6 +5,160 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TableType {
+  id               String           @id @default(cuid())
+  name             String
+  slug             String           @unique
+  description      String
+  shortDescription String
+  capacity         Int
+  section          String
+  amenities        String[]
+  images           String[]
+  baseMinimumSpend Decimal          @db.Decimal(10, 2)
+  sortOrder        Int              @default(0)
+  active           Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  pricingRules     PricingRule[]
+  reservations     Reservation[]
+  inventory        TableInventory[]
+
+  @@index([slug])
+  @@index([active])
+}
+
+model TableInventory {
+  id          String    @id @default(cuid())
+  tableTypeId String
+  date        DateTime  @db.Date
+  totalCount  Int
+  available   Int
+  blocked     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  tableType   TableType @relation(fields: [tableTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([tableTypeId, date])
+  @@index([date])
+}
+
+model PricingRule {
+  id           String    @id @default(cuid())
+  tableTypeId  String
+  dayType      DayType
+  minimumSpend Decimal   @db.Decimal(10, 2)
+  depositRate  Decimal   @default(0.15) @db.Decimal(3, 2)
+  eventName    String?
+  startDate    DateTime?
+  endDate      DateTime?
+  priority     Int       @default(0)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  tableType    TableType @relation(fields: [tableTypeId], references: [id], onDelete: Cascade)
+
+  @@index([tableTypeId, startDate, endDate])
+}
+
+model Bottle {
+  id                 String              @id @default(cuid())
+  name               String
+  brand              String
+  category           BottleCategory
+  size               String
+  price              Decimal             @db.Decimal(10, 2)
+  image              String?
+  description        String?
+  inStock            Boolean             @default(true)
+  active             Boolean             @default(true)
+  sortOrder          Int                 @default(0)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  reservationBottles ReservationBottle[]
+
+  @@index([category, active])
+}
+
+model Reservation {
+  id               String              @id @default(cuid())
+  confirmationCode String              @unique @default(cuid())
+  tableTypeId      String
+  date             DateTime
+  status           ReservationStatus   @default(PENDING)
+  customerName     String
+  customerEmail    String
+  customerPhone    String
+  occasion         String?
+  specialRequests  String?
+  partySize        Int
+  minimumSpend     Decimal             @db.Decimal(10, 2)
+  bottleSubtotal   Decimal             @db.Decimal(10, 2)
+  depositAmount    Decimal             @db.Decimal(10, 2)
+  depositPaid      Boolean             @default(false)
+  paymentIntentId  String?
+  paymentMethod    String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  checkedInAt      DateTime?
+  notifications    Notification[]
+  tableType        TableType           @relation(fields: [tableTypeId], references: [id])
+  bottles          ReservationBottle[]
+
+  @@index([confirmationCode])
+  @@index([date, status])
+  @@index([customerEmail])
+}
+
+model ReservationBottle {
+  id            String      @id @default(cuid())
+  reservationId String
+  bottleId      String
+  quantity      Int
+  pricePerUnit  Decimal     @db.Decimal(10, 2)
+  totalPrice    Decimal     @db.Decimal(10, 2)
+  bottle        Bottle      @relation(fields: [bottleId], references: [id])
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@unique([reservationId, bottleId])
+}
+
+model Notification {
+  id            String      @id @default(cuid())
+  reservationId String
+  type          String
+  recipient     String
+  subject       String
+  content       String
+  sentAt        DateTime?
+  failedAt      DateTime?
+  error         String?
+  createdAt     DateTime    @default(now())
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId])
+}
+
+model Settings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
 }
 
 enum DayType {
@@ -34,174 +186,4 @@ enum BottleCategory {
   BEER
   MIXERS
   OTHER
-}
-
-model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  password      String
-  role          String    @default("admin")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-}
-
-model TableType {
-  id                String   @id @default(cuid())
-  name              String
-  slug              String   @unique
-  description       String   @db.Text
-  shortDescription  String
-  capacity          Int
-  section           String
-  amenities         String[]
-  images            String[]
-  baseMinimumSpend  Decimal  @db.Decimal(10, 2)
-  sortOrder         Int      @default(0)
-  active            Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  inventory         TableInventory[]
-  reservations      Reservation[]
-  pricingRules      PricingRule[]
-  
-  @@index([slug])
-  @@index([active])
-}
-
-model TableInventory {
-  id          String    @id @default(cuid())
-  tableTypeId String
-  date        DateTime  @db.Date
-  totalCount  Int
-  available   Int
-  blocked     Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  tableType   TableType @relation(fields: [tableTypeId], references: [id], onDelete: Cascade)
-  
-  @@unique([tableTypeId, date])
-  @@index([date])
-}
-
-model PricingRule {
-  id           String    @id @default(cuid())
-  tableTypeId  String
-  dayType      DayType
-  minimumSpend Decimal   @db.Decimal(10, 2)
-  depositRate  Decimal   @default(0.15) @db.Decimal(3, 2)
-  eventName    String?
-  startDate    DateTime?
-  endDate      DateTime?
-  priority     Int       @default(0)
-  active       Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  
-  tableType    TableType @relation(fields: [tableTypeId], references: [id], onDelete: Cascade)
-  
-  @@index([tableTypeId, startDate, endDate])
-}
-
-model Bottle {
-  id          String         @id @default(cuid())
-  name        String
-  brand       String
-  category    BottleCategory
-  size        String
-  price       Decimal        @db.Decimal(10, 2)
-  image       String?
-  description String?
-  inStock     Boolean        @default(true)
-  active      Boolean        @default(true)
-  sortOrder   Int            @default(0)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  
-  reservationBottles ReservationBottle[]
-  
-  @@index([category, active])
-}
-
-model Reservation {
-  id               String            @id @default(cuid())
-  confirmationCode String            @unique @default(cuid())
-  tableTypeId      String
-  date             DateTime
-  status           ReservationStatus @default(PENDING)
-  
-  // Customer Information
-  customerName     String
-  customerEmail    String
-  customerPhone    String
-  occasion         String?
-  specialRequests  String?           @db.Text
-  partySize        Int
-  
-  // Financial Information
-  minimumSpend     Decimal           @db.Decimal(10, 2)
-  bottleSubtotal   Decimal           @db.Decimal(10, 2)
-  depositAmount    Decimal           @db.Decimal(10, 2)
-  depositPaid      Boolean           @default(false)
-  
-  // Payment Information
-  paymentIntentId  String?
-  paymentMethod    String?
-  
-  // Timestamps
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  checkedInAt      DateTime?
-  
-  // Relations
-  tableType        TableType         @relation(fields: [tableTypeId], references: [id])
-  bottles          ReservationBottle[]
-  notifications    Notification[]
-  
-  @@index([confirmationCode])
-  @@index([date, status])
-  @@index([customerEmail])
-}
-
-model ReservationBottle {
-  id            String      @id @default(cuid())
-  reservationId String
-  bottleId      String
-  quantity      Int
-  pricePerUnit  Decimal     @db.Decimal(10, 2)
-  totalPrice    Decimal     @db.Decimal(10, 2)
-  
-  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
-  bottle        Bottle      @relation(fields: [bottleId], references: [id])
-  
-  @@unique([reservationId, bottleId])
-}
-
-model Notification {
-  id            String      @id @default(cuid())
-  reservationId String
-  type          String      // CONFIRMATION, REMINDER, CANCELLATION, etc.
-  recipient     String
-  subject       String
-  content       String      @db.Text
-  sentAt        DateTime?
-  failedAt      DateTime?
-  error         String?
-  createdAt     DateTime    @default(now())
-  
-  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
-  
-  @@index([reservationId])
-}
-
-model Settings {
-  id                      String   @id @default(cuid())
-  key                     String   @unique
-  value                   Json
-  description             String?
-  updatedAt               DateTime @updatedAt
-  
-  @@index([key])
 }
