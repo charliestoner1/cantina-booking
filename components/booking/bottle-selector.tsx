@@ -1,6 +1,7 @@
 'use client'
 
 // components/booking/bottle-selector.tsx
+import { useBookingStore } from '@/lib/store/booking-store'
 import { AlertCircle, Minus, Plus, ShoppingCart } from 'lucide-react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -41,7 +42,7 @@ export default function BottleSelector() {
 
   useEffect(() => {
     if (!minimumSpend || !tableId || !date) {
-      router.push('/tables')
+      router.push('/booking/calendar')
       return
     }
 
@@ -124,23 +125,38 @@ export default function BottleSelector() {
   const handleContinue = () => {
     if (!meetsMinimum) return
 
-    const bottleData = Array.from(selectedBottles.values()).map((item) => ({
-      id: item.bottle.id,
-      quantity: item.quantity,
-      price: item.bottle.price,
-      name: item.bottle.name,
-    }))
+    // Get the store actions
+    const { setTableType, setSelectedDate, addBottle, clearBooking } =
+      useBookingStore.getState()
 
-    const params = new URLSearchParams({
-      tableId: tableId || '',
-      table: tableSlug || '',
-      date: date || '',
-      minimumSpend: minimumSpend.toString(),
-      bottles: JSON.stringify(bottleData),
-      total: currentTotal.toString(),
+    // Clear previous selections
+    clearBooking()
+
+    // Set table info (you'll need to fetch or pass the full table data)
+    setTableType({
+      id: tableId || '',
+      name: tableSlug || '',
+      slug: tableSlug || '',
+      minimumSpend: minimumSpend,
+      capacity: 6, // Default capacity, adjust as needed
     })
 
-    router.push(`/booking/checkout?${params.toString()}`)
+    // Set selected date
+    setSelectedDate(new Date(date || ''))
+
+    // Add each bottle to the store
+    Array.from(selectedBottles.values()).forEach((item) => {
+      for (let i = 0; i < item.quantity; i++) {
+        addBottle({
+          id: item.bottle.id,
+          name: item.bottle.name,
+          price: item.bottle.price,
+        })
+      }
+    })
+
+    // Navigate to checkout (no params needed)
+    router.push('/booking/checkout')
   }
 
   const formatPrice = (amount: number) => {
