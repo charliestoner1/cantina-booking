@@ -2,8 +2,8 @@
 
 // components/booking/calendar-component.tsx
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 interface TableType {
   id: string
@@ -30,6 +30,7 @@ interface PricingInfo {
 export default function CalendarComponent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const pathname = usePathname()
   const tableSlug = searchParams.get('table')
   const tableId = searchParams.get('tableId')
 
@@ -41,6 +42,7 @@ export default function CalendarComponent() {
   const [tableType, setTableType] = useState<TableType | null>(null)
   const [loading, setLoading] = useState(true)
   const [pricingInfo, setPricingInfo] = useState<PricingInfo | null>(null)
+  const hasCheckedRedirect = useRef(false)
 
   const fetchTableInfo = useCallback(async () => {
     if (!tableSlug) return
@@ -90,40 +92,55 @@ export default function CalendarComponent() {
     }
   }, [tableId, currentMonth])
 
-  // Check for required parameters - ONLY run on calendar page
+  // Smart redirect guard - only redirect if we should
   useEffect(() => {
-    // Only run this check if we're actually on the calendar page
-    if (
-      typeof window !== 'undefined' &&
-      !window.location.pathname.includes('/booking/calendar')
-    ) {
-      console.log('[CALENDAR] Not on calendar page, skipping initialization')
+    // Only run once on mount
+    if (hasCheckedRedirect.current) return
+    hasCheckedRedirect.current = true
+
+    // GUARD 1: Only run if we're actually on the calendar page
+    if (pathname !== '/booking/calendar') {
+      console.log('[CALENDAR] Not on calendar page, skipping redirect check')
       return
     }
 
-    //if (!tableSlug || !tableId) {
-    //console.log('[CALENDAR] Missing required parameters, redirecting to home')
-    //router.push('/')
-    //return
-    //}
+    // GUARD 2: Check for recent booking completion
+    const recentBooking = sessionStorage.getItem('booking_just_completed')
+    if (recentBooking) {
+      const timestamp = parseInt(recentBooking)
+      const fiveSecondsAgo = Date.now() - 5000
 
-    fetchTableInfo()
-  }, [tableSlug, tableId, fetchTableInfo, router])
-
-  // Fetch availability when table or month changes - ONLY on calendar page
-  useEffect(() => {
-    // Only fetch if we're on the calendar page
-    if (
-      typeof window !== 'undefined' &&
-      !window.location.pathname.includes('/booking/calendar')
-    ) {
-      return
+      if (timestamp > fiveSecondsAgo) {
+        // Booking was just completed, don't redirect
+        console.log('[CALENDAR] Recent booking detected, not redirecting')
+        return
+      } else {
+        // Clean up old flag
+        sessionStorage.removeItem('booking_just_completed')
+      }
     }
 
+    // GUARD 3: Check if we have required parameters
+    if (!tableSlug || !tableId) {
+      console.log('[CALENDAR] Missing table parameters, redirecting to home')
+      router.push('/')
+    }
+  }, [pathname, tableSlug, tableId, router])
+
+  // Fetch table info and availability
+  useEffect(() => {
+    if (pathname !== '/booking/calendar') return
+    if (tableSlug && tableId) {
+      fetchTableInfo()
+    }
+  }, [tableSlug, tableId, pathname, fetchTableInfo])
+
+  useEffect(() => {
+    if (pathname !== '/booking/calendar') return
     if (tableId) {
       fetchAvailability()
     }
-  }, [tableId, currentMonth, fetchAvailability])
+  }, [tableId, currentMonth, pathname, fetchAvailability])
 
   const getDaysInMonth = () => {
     const year = currentMonth.getFullYear()
@@ -233,17 +250,13 @@ export default function CalendarComponent() {
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-  // Don't render if we're not on the calendar page
-  if (
-    typeof window !== 'undefined' &&
-    !window.location.pathname.includes('/booking/calendar')
-  ) {
-    return null
-  }
-
-  // Don't render until we have the required data
+  // Don't render if missing required params
   if (!tableSlug || !tableId) {
-    return null
+    return (
+      <div className="max-w-4xl mx-auto text-center py-8">
+        <p className="text-gray-400">Loading table information...</p>
+      </div>
+    )
   }
 
   return (

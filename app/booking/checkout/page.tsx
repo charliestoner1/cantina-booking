@@ -3,7 +3,7 @@
 import { useBookingStore } from '@/lib/store/booking-store'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format, isValid, parseISO } from 'date-fns'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import * as z from 'zod'
@@ -31,9 +31,10 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>
 
 export default function CheckoutPage() {
   const router = useRouter()
+  const pathname = usePathname()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [depositAmount, setDepositAmount] = useState(0)
-  const isNavigatingToConfirmation = useRef(false)
+  const hasCheckedRedirect = useRef(false)
 
   const {
     tableType,
@@ -62,14 +63,37 @@ export default function CheckoutPage() {
     setDepositAmount(totalSpend * 0.15)
   }, [selectedBottles, getTotalBottleSpend])
 
-  // Redirect if no booking data - but not if we're navigating to confirmation
-  //useEffect(() => {
-  //if (!isNavigatingToConfirmation.current &&
-  //(!tableType || !selectedDate || selectedBottles.length === 0)) {
-  //console.log('[CHECKOUT] No booking data found, redirecting to calendar')
-  //router.push('/booking/calendar')
-  //}
-  //}, [tableType, selectedDate, selectedBottles, router])
+  // Smart redirect guard - only redirect if we should
+  useEffect(() => {
+    // Only run once on mount
+    if (hasCheckedRedirect.current) return
+    hasCheckedRedirect.current = true
+
+    // GUARD 1: Only run if we're actually on the checkout page
+    if (pathname !== '/booking/checkout') return
+
+    // GUARD 2: Check for recent booking completion
+    const recentBooking = sessionStorage.getItem('booking_just_completed')
+    if (recentBooking) {
+      const timestamp = parseInt(recentBooking)
+      const fiveSecondsAgo = Date.now() - 5000
+
+      if (timestamp > fiveSecondsAgo) {
+        // Booking was just completed, don't redirect
+        console.log('[CHECKOUT] Recent booking detected, not redirecting')
+        return
+      } else {
+        // Clean up old flag
+        sessionStorage.removeItem('booking_just_completed')
+      }
+    }
+
+    // GUARD 3: Check if we have required booking data
+    if (!tableType || !selectedDate || selectedBottles.length === 0) {
+      console.log('[CHECKOUT] Missing booking data, redirecting to calendar')
+      router.push('/booking/calendar')
+    }
+  }, [pathname, tableType, selectedDate, selectedBottles, router])
 
   // Helper function to safely convert selectedDate to Date object
   const getDateObject = (dateValue: Date | string | null): Date | null => {
@@ -80,12 +104,10 @@ export default function CheckoutPage() {
     }
 
     if (typeof dateValue === 'string') {
-      // Try parsing as ISO string first
       try {
         const parsed = parseISO(dateValue)
         return isValid(parsed) ? parsed : null
-      } catch {
-        // Fall back to Date constructor
+      } catch (e) {
         const fallback = new Date(dateValue)
         return isValid(fallback) ? fallback : null
       }
@@ -172,8 +194,8 @@ export default function CheckoutPage() {
         throw new Error('No confirmation code received from server')
       }
 
-      // Set flag to prevent redirect when navigating
-      isNavigatingToConfirmation.current = true
+      // CRITICAL: Set sessionStorage flag to prevent redirects during navigation
+      sessionStorage.setItem('booking_just_completed', Date.now().toString())
 
       // Navigate to confirmation page using hard redirect
       console.log(
@@ -189,7 +211,6 @@ export default function CheckoutPage() {
       alert(
         `Failed to create booking: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
-      isNavigatingToConfirmation.current = false
     } finally {
       setIsSubmitting(false)
     }

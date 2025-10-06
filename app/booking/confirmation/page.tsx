@@ -1,7 +1,8 @@
 'use client'
 
+import { useBookingStore } from '@/lib/store/booking-store'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 interface Bottle {
@@ -48,6 +49,7 @@ interface Booking {
 }
 
 export default function ConfirmationPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
@@ -273,12 +275,15 @@ export default function ConfirmationPage() {
 
         {/* Action Buttons */}
         <div className="text-center mt-8 space-x-4">
-          <Link
-            href="/"
+          <button
+            onClick={() => {
+              useBookingStore.getState().clearBooking()
+              router.push('/')
+            }}
             className="inline-block bg-gray-700 text-white px-8 py-3 rounded-lg hover:bg-gray-600 transition"
           >
-            Back to Home
-          </Link>
+            Make Another Booking
+          </button>
           <button
             onClick={handlePrint}
             className="inline-block bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition"

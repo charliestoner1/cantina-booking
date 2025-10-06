@@ -4,8 +4,8 @@
 import { useBookingStore } from '@/lib/store/booking-store'
 import { AlertCircle, Minus, Plus, ShoppingCart } from 'lucide-react'
 import Image from 'next/image'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
 
 interface Bottle {
   id: string
@@ -26,6 +26,7 @@ interface SelectedBottle {
 export default function BottleSelector() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const pathname = usePathname()
 
   const minimumSpend = parseFloat(searchParams.get('minimumSpend') || '0')
   const tableId = searchParams.get('tableId')
@@ -38,16 +39,52 @@ export default function BottleSelector() {
   >(new Map())
   const [currentCategory, setCurrentCategory] = useState<string>('ALL')
   const [loading, setLoading] = useState(true)
-  const [showCart, setShowCart] = useState(false)
+  const hasCheckedRedirect = useRef(false)
 
+  // Smart redirect guard - only redirect if we should
   useEffect(() => {
-    if (!minimumSpend || !tableId || !date) {
-      router.push('/booking/calendar')
+    // Only run once on mount
+    if (hasCheckedRedirect.current) return
+    hasCheckedRedirect.current = true
+
+    // GUARD 1: Only run if we're actually on the bottles page
+    if (pathname !== '/booking/bottles') {
+      console.log('[BOTTLES] Not on bottles page, skipping redirect check')
       return
     }
 
-    fetchBottles()
-  }, [])
+    // GUARD 2: Check for recent booking completion
+    const recentBooking = sessionStorage.getItem('booking_just_completed')
+    if (recentBooking) {
+      const timestamp = parseInt(recentBooking)
+      const fiveSecondsAgo = Date.now() - 5000
+
+      if (timestamp > fiveSecondsAgo) {
+        // Booking was just completed, don't redirect
+        console.log('[BOTTLES] Recent booking detected, not redirecting')
+        return
+      } else {
+        // Clean up old flag
+        sessionStorage.removeItem('booking_just_completed')
+      }
+    }
+
+    // GUARD 3: Check if we have required parameters
+    if (!minimumSpend || !tableId || !date) {
+      console.log(
+        '[BOTTLES] Missing required parameters, redirecting to calendar'
+      )
+      router.push('/booking/calendar')
+    }
+  }, [pathname, minimumSpend, tableId, date, router])
+
+  // Fetch bottles
+  useEffect(() => {
+    if (pathname !== '/booking/bottles') return
+    if (minimumSpend && tableId && date) {
+      fetchBottles()
+    }
+  }, [pathname, minimumSpend, tableId, date])
 
   const fetchBottles = async () => {
     try {
@@ -132,13 +169,13 @@ export default function BottleSelector() {
     // Clear previous selections
     clearBooking()
 
-    // Set table info (you'll need to fetch or pass the full table data)
+    // Set table info
     setTableType({
       id: tableId || '',
       name: tableSlug || '',
       slug: tableSlug || '',
       minimumSpend: minimumSpend,
-      capacity: 6, // Default capacity, adjust as needed
+      capacity: 6, // Default capacity
     })
 
     // Set selected date
@@ -155,7 +192,7 @@ export default function BottleSelector() {
       }
     })
 
-    // Navigate to checkout (no params needed)
+    // Navigate to checkout
     router.push('/booking/checkout')
   }
 
@@ -168,7 +205,20 @@ export default function BottleSelector() {
   }
 
   if (loading) {
-    return <div className="text-center">Loading bottles...</div>
+    return (
+      <div className="max-w-7xl mx-auto text-center py-8">
+        <div className="text-xl text-gray-400">Loading bottles...</div>
+      </div>
+    )
+  }
+
+  // Don't render if missing required params
+  if (!minimumSpend || !tableId || !date) {
+    return (
+      <div className="max-w-7xl mx-auto text-center py-8">
+        <p className="text-gray-400">Loading bottle selection...</p>
+      </div>
+    )
   }
 
   return (
@@ -246,7 +296,7 @@ export default function BottleSelector() {
                       />
                     ) : (
                       <div className="flex items-center justify-center h-full">
-                        <span className="text-6xl">🍾</span>
+                        <span className="text-6xl">🾠</span>
                       </div>
                     )}
                     {quantity > 0 && (
