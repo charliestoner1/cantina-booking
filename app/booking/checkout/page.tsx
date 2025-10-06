@@ -2,9 +2,9 @@
 
 import { useBookingStore } from '@/lib/store/booking-store'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { format } from 'date-fns'
+import { format, isValid, parseISO } from 'date-fns'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import * as z from 'zod'
 
@@ -33,6 +33,7 @@ export default function CheckoutPage() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [depositAmount, setDepositAmount] = useState(0)
+  const isNavigatingToConfirmation = useRef(false)
 
   const {
     tableType,
@@ -40,7 +41,6 @@ export default function CheckoutPage() {
     selectedBottles,
     getTotalBottleSpend,
     setCustomerInfo,
-    clearBooking,
   } = useBookingStore()
 
   const {
@@ -62,14 +62,46 @@ export default function CheckoutPage() {
     setDepositAmount(totalSpend * 0.15)
   }, [selectedBottles, getTotalBottleSpend])
 
-  // Redirect if no booking data
-  useEffect(() => {
-    if (!tableType || !selectedDate || selectedBottles.length === 0) {
-      router.push('/booking/calendar')
+  // Redirect if no booking data - but not if we're navigating to confirmation
+  //useEffect(() => {
+  //if (!isNavigatingToConfirmation.current &&
+  //(!tableType || !selectedDate || selectedBottles.length === 0)) {
+  //console.log('[CHECKOUT] No booking data found, redirecting to calendar')
+  //router.push('/booking/calendar')
+  //}
+  //}, [tableType, selectedDate, selectedBottles, router])
+
+  // Helper function to safely convert selectedDate to Date object
+  const getDateObject = (dateValue: Date | string | null): Date | null => {
+    if (!dateValue) return null
+
+    if (dateValue instanceof Date) {
+      return isValid(dateValue) ? dateValue : null
     }
-  }, [tableType, selectedDate, selectedBottles, router])
+
+    if (typeof dateValue === 'string') {
+      // Try parsing as ISO string first
+      try {
+        const parsed = parseISO(dateValue)
+        return isValid(parsed) ? parsed : null
+      } catch {
+        // Fall back to Date constructor
+        const fallback = new Date(dateValue)
+        return isValid(fallback) ? fallback : null
+      }
+    }
+
+    return null
+  }
 
   const onSubmit = async (data: CheckoutFormData) => {
+    // Double check we have required data
+    if (!tableType || !selectedDate || selectedBottles.length === 0) {
+      alert('Missing booking information. Please start over.')
+      router.push('/booking/calendar')
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -83,15 +115,24 @@ export default function CheckoutPage() {
         specialRequests: data.specialRequests,
       })
 
-      // Prepare date - handle both Date objects and strings
-      let dateToSend: string
-      if (selectedDate instanceof Date) {
-        dateToSend = selectedDate.toISOString()
-      } else if (typeof selectedDate === 'string') {
-        dateToSend = new Date(selectedDate).toISOString()
-      } else {
-        dateToSend = new Date().toISOString()
+      // Get valid date object
+      const dateObj = getDateObject(selectedDate)
+      if (!dateObj) {
+        alert('Invalid date selected. Please go back and select a valid date.')
+        router.push('/booking/calendar')
+        return
       }
+
+      const dateToSend = dateObj.toISOString()
+
+      // Prepare bottles data matching API expectations
+      const bottlesData = selectedBottles.map((bottle) => ({
+        bottleId: bottle.id,
+        quantity: bottle.quantity,
+        pricePerUnit: bottle.price,
+      }))
+
+      const totalSpend = getTotalBottleSpend()
 
       // Create booking via API
       const response = await fetch('/api/bookings', {
@@ -100,24 +141,18 @@ export default function CheckoutPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          tableTypeId: tableType?.id,
+          tableTypeId: tableType.id,
           date: dateToSend,
-          customerName: data.name, // Send as single field matching schema
+          customerName: data.name,
           customerEmail: data.email,
           customerPhone: data.phone,
           partySize: data.partySize,
-          occasion: data.occasion,
-          specialRequests: data.specialRequests,
-          minimumSpend: Number(tableType?.minimumSpend) || 0,
-          bottleSubtotal: getTotalBottleSpend(), // Actual total of bottles
+          occasion: data.occasion || null,
+          specialRequests: data.specialRequests || null,
+          minimumSpend: Number(tableType.minimumSpend) || 0,
+          bottleSubtotal: totalSpend,
           depositAmount: depositAmount,
-          bottles: selectedBottles.map((b) => ({
-            id: b.id,
-            bottleId: b.id,
-            quantity: b.quantity,
-            price: b.price,
-            pricePerUnit: b.price,
-          })),
+          bottles: bottlesData,
         }),
       })
 
@@ -130,34 +165,67 @@ export default function CheckoutPage() {
       }
 
       const booking = await response.json()
+      console.log('Booking created:', booking)
 
-      // Clear booking data and redirect to confirmation
-      clearBooking()
-      router.push(`/booking/confirmation?code=${booking.confirmationCode}`)
+      // Make sure we have a confirmation code
+      if (!booking.confirmationCode) {
+        throw new Error('No confirmation code received from server')
+      }
+
+      // Set flag to prevent redirect when navigating
+      isNavigatingToConfirmation.current = true
+
+      // Navigate to confirmation page using hard redirect
+      console.log(
+        'Navigating to confirmation page with code:',
+        booking.confirmationCode
+      )
+      window.location.href = `/booking/confirmation?code=${booking.confirmationCode}`
+
+      // Don't clear booking data - let it persist
+      // The data in store doesn't hurt anything and clearing it causes redirect issues
     } catch (error) {
       console.error('Booking error:', error)
       alert(
-        `Failed to create booking: ${error instanceof Error ? error.message : 'Unknown error'}. Please check the console for details.`
+        `Failed to create booking: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
+      isNavigatingToConfirmation.current = false
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  // Early return if no booking data
   if (!tableType || !selectedDate) {
-    return null
+    return (
+      <div className="min-h-screen bg-gray-50 py-12">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h2 className="text-2xl font-bold mb-4">
+            No booking information found
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Please start your booking from the beginning.
+          </p>
+          <button
+            onClick={() => router.push('/')}
+            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Start Booking
+          </button>
+        </div>
+      </div>
+    )
   }
 
   const totalSpend = getTotalBottleSpend()
   const termsAccepted = watch('termsAccepted')
 
-  // Format date safely
-  const formattedDate = selectedDate
-    ? format(
-        selectedDate instanceof Date ? selectedDate : new Date(selectedDate),
-        'EEEE, MMMM d, yyyy'
-      )
-    : ''
+  // Format date safely using the helper function
+  const dateObj = getDateObject(selectedDate)
+  const formattedDate = dateObj
+    ? format(dateObj, 'EEEE, MMMM d, yyyy')
+    : 'Invalid date'
+  const isDateValid = dateObj !== null
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -176,24 +244,25 @@ export default function CheckoutPage() {
 
             <div className="flex justify-between">
               <span className="text-gray-600">Date:</span>
-              <span className="font-medium">{formattedDate}</span>
+              <span
+                className={`font-medium ${!isDateValid ? 'text-red-600' : ''}`}
+              >
+                {formattedDate}
+              </span>
             </div>
 
             <div className="flex justify-between">
               <span className="text-gray-600">Minimum Spend:</span>
               <span className="font-medium">
-                $
-                {tableType.minimumSpend
-                  ? Number(tableType.minimumSpend).toFixed(2)
-                  : '0.00'}
+                ${Number(tableType.minimumSpend).toFixed(2)}
               </span>
             </div>
 
             <div className="pt-3 border-t">
               <h3 className="font-semibold mb-2">Selected Bottles:</h3>
-              {selectedBottles.map((bottle) => (
+              {selectedBottles.map((bottle, index) => (
                 <div
-                  key={bottle.id}
+                  key={`${bottle.id}-${index}`}
                   className="flex justify-between text-sm mb-1"
                 >
                   <span>
@@ -216,6 +285,16 @@ export default function CheckoutPage() {
             </div>
           </div>
         </div>
+
+        {/* Show warning if date is invalid */}
+        {!isDateValid && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <p className="text-red-800">
+              The selected date is invalid. Please go back and select a valid
+              date.
+            </p>
+          </div>
+        )}
 
         {/* Customer Information Form */}
         <form
@@ -290,7 +369,7 @@ export default function CheckoutPage() {
                 {...register('partySize')}
                 type="number"
                 min="1"
-                max="20"
+                max={tableType.capacity || 20}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   errors.partySize ? 'border-red-500' : 'border-gray-300'
                 }`}
@@ -354,7 +433,7 @@ export default function CheckoutPage() {
           <div className="mt-8 flex gap-4">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => router.push('/booking/bottles')}
               className="px-6 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
             >
               Back
@@ -362,9 +441,9 @@ export default function CheckoutPage() {
 
             <button
               type="submit"
-              disabled={isSubmitting || !termsAccepted}
+              disabled={isSubmitting || !termsAccepted || !isDateValid}
               className={`flex-1 px-6 py-3 rounded-md text-white font-medium transition-colors ${
-                isSubmitting || !termsAccepted
+                isSubmitting || !termsAccepted || !isDateValid
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700'
               }`}

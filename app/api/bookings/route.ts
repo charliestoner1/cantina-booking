@@ -1,13 +1,11 @@
+// app/api/bookings/route.ts
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Define bottle input type
 interface BottleInput {
-  id: string
-  bottleId?: string
+  bottleId: string
   quantity: number
-  price?: number
-  pricePerUnit?: number
+  pricePerUnit: number
 }
 
 export async function POST(request: NextRequest) {
@@ -43,10 +41,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check table availability
+    // Parse and format the date
     const selectedDate = new Date(date)
     const dateOnly = new Date(selectedDate.toISOString().split('T')[0])
 
+    // Check table availability
     const inventory = await prisma.tableInventory.findUnique({
       where: {
         tableTypeId_date: {
@@ -74,19 +73,18 @@ export async function POST(request: NextRequest) {
           customerEmail,
           customerPhone,
           partySize,
-          occasion,
-          specialRequests,
-          minimumSpend,
-          bottleSubtotal,
-          depositAmount,
+          occasion: occasion || null,
+          specialRequests: specialRequests || null,
+          minimumSpend: Number(minimumSpend),
+          bottleSubtotal: Number(bottleSubtotal),
+          depositAmount: Number(depositAmount),
           status: 'PENDING',
           bottles: {
             create: (bottles as BottleInput[]).map((bottle) => ({
-              bottleId: bottle.bottleId || bottle.id,
+              bottleId: bottle.bottleId,
               quantity: bottle.quantity,
-              pricePerUnit: bottle.pricePerUnit || bottle.price || 0,
-              totalPrice:
-                bottle.quantity * (bottle.pricePerUnit || bottle.price || 0),
+              pricePerUnit: Number(bottle.pricePerUnit),
+              totalPrice: Number(bottle.quantity) * Number(bottle.pricePerUnit),
             })),
           },
         },
@@ -122,13 +120,14 @@ export async function POST(request: NextRequest) {
           type: 'CONFIRMATION',
           recipient: customerEmail,
           subject: `Booking Confirmation - ${newReservation.confirmationCode}`,
-          content: `Your booking for ${newReservation.tableType.name} on ${date} has been confirmed.`,
+          content: `Your booking for ${newReservation.tableType.name} on ${selectedDate.toLocaleDateString()} has been confirmed.`,
         },
       })
 
       return newReservation
     })
 
+    // Return the complete reservation with confirmation code
     return NextResponse.json({
       success: true,
       confirmationCode: reservation.confirmationCode,
@@ -146,55 +145,36 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// GET route to list bookings (optional, for admin or user history)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const confirmationCode = searchParams.get('code')
     const email = searchParams.get('email')
+    const limit = parseInt(searchParams.get('limit') || '10')
 
-    let reservation
+    const where = email ? { customerEmail: email } : {}
 
-    if (confirmationCode) {
-      reservation = await prisma.reservation.findUnique({
-        where: { confirmationCode },
-        include: {
-          tableType: true,
-          bottles: {
-            include: {
-              bottle: true,
-            },
+    const reservations = await prisma.reservation.findMany({
+      where,
+      include: {
+        tableType: true,
+        bottles: {
+          include: {
+            bottle: true,
           },
         },
-      })
-    } else if (email) {
-      const reservations = await prisma.reservation.findMany({
-        where: { customerEmail: email },
-        include: {
-          tableType: true,
-          bottles: {
-            include: {
-              bottle: true,
-            },
-          },
-        },
-        orderBy: { date: 'desc' },
-      })
+      },
+      orderBy: {
+        date: 'desc',
+      },
+      take: limit,
+    })
 
-      return NextResponse.json(reservations)
-    }
-
-    if (!reservation) {
-      return NextResponse.json(
-        { error: 'Reservation not found' },
-        { status: 404 }
-      )
-    }
-
-    return NextResponse.json(reservation)
+    return NextResponse.json(reservations)
   } catch (error) {
     console.error('Booking fetch error:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch booking' },
+      { error: 'Failed to fetch bookings' },
       { status: 500 }
     )
   }
