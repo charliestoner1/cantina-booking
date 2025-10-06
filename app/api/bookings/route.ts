@@ -1,6 +1,10 @@
 // app/api/bookings/route.ts
+import { getBookingConfirmationEmail } from '@/lib/emails/booking-confirmation'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 interface BottleInput {
   bottleId: string
@@ -126,6 +130,43 @@ export async function POST(request: NextRequest) {
 
       return newReservation
     })
+
+    // Send confirmation email
+    try {
+      const emailContent = getBookingConfirmationEmail({
+        customerName: reservation.customerName,
+        confirmationCode: reservation.confirmationCode,
+        tableName: reservation.tableType.name,
+        date: reservation.date.toISOString(),
+        partySize: reservation.partySize,
+        bottleSubtotal: Number(reservation.bottleSubtotal),
+        depositAmount: Number(reservation.depositAmount),
+        bottles: reservation.bottles.map((b) => ({
+          name: b.bottle.name,
+          quantity: b.quantity,
+          price: Number(b.pricePerUnit),
+        })),
+        occasion: reservation.occasion,
+        specialRequests: reservation.specialRequests,
+      })
+
+      const emailResult = await resend.emails.send({
+        from: 'Cantina Añejo <onboarding@resend.dev>', // Change to your domain after verification
+        to: reservation.customerEmail,
+        subject: emailContent.subject,
+        html: emailContent.html,
+      })
+
+      console.log('✅ Confirmation email sent:', {
+        to: reservation.customerEmail,
+        confirmationCode: reservation.confirmationCode,
+        emailId: emailResult.data?.id,
+      })
+    } catch (emailError) {
+      // Log error but don't fail the booking
+      console.error('❌ Failed to send confirmation email:', emailError)
+      // Still continue - booking was successful even if email failed
+    }
 
     // Return the complete reservation with confirmation code
     return NextResponse.json({
