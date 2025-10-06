@@ -1,3 +1,4 @@
+// app/admin/login/page.tsx
 'use client'
 
 import { signIn } from 'next-auth/react'
