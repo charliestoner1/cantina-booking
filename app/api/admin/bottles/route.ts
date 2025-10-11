@@ -1,86 +1,70 @@
-// app/api/admin/tables/route.ts
+// app/api/admin/bottles/route.ts
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
-// GET all tables
+// GET all bottles
 export async function GET(request: NextRequest) {
   try {
-    const tables = await prisma.tableType.findMany({
+    const bottles = await prisma.bottle.findMany({
       orderBy: {
-        baseMinimumSpend: 'asc',
+        category: 'asc',
       },
     })
 
-    return NextResponse.json(tables)
+    return NextResponse.json(bottles)
   } catch (error) {
-    console.error('Error fetching tables:', error)
+    console.error('Error fetching bottles:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch tables' },
+      { error: 'Failed to fetch bottles' },
       { status: 500 }
     )
   }
 }
 
-// POST create new table
+// POST create new bottle
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const {
       name,
-      slug,
+      brand,
+      category,
+      size,
+      price,
       description,
-      shortDescription,
-      capacity,
-      baseMinimumSpend,
-      amenities,
       imageUrl,
+      available,
     } = body
 
-    // Validate required fields
-    if (
-      !name ||
-      !slug ||
-      !description ||
-      !shortDescription ||
-      !capacity ||
-      !baseMinimumSpend
-    ) {
+    // Validate required fields (size is required in schema!)
+    if (!name || !brand || !category || !size || price === undefined) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        {
+          error: 'Missing required fields (name, brand, category, size, price)',
+        },
         { status: 400 }
       )
     }
 
-    // Check if slug already exists
-    const existing = await prisma.tableType.findUnique({
-      where: { slug },
-    })
-
-    if (existing) {
-      return NextResponse.json(
-        { error: 'Table with this slug already exists' },
-        { status: 400 }
-      )
-    }
-
-    const newTable = await prisma.tableType.create({
+    const newBottle = await prisma.bottle.create({
       data: {
         name,
-        slug,
-        description,
-        shortDescription,
-        capacity: parseInt(capacity),
-        baseMinimumSpend: parseFloat(baseMinimumSpend),
-        amenities: amenities || [],
-        imageUrl: imageUrl || '',
+        brand,
+        category,
+        size, // Required field!
+        price: parseFloat(price),
+        description: description || '',
+        image: imageUrl || '', // Schema uses 'image' not 'imageUrl'
+        inStock: available !== undefined ? available : true,
+        active: true,
       },
     })
 
-    return NextResponse.json(newTable, { status: 201 })
+    return NextResponse.json(newBottle, { status: 201 })
   } catch (error) {
-    console.error('Error creating table:', error)
+    console.error('Error creating bottle:', error)
     return NextResponse.json(
-      { error: 'Failed to create table' },
+      { error: 'Failed to create bottle' },
       { status: 500 }
     )
   }

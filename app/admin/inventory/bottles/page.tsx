@@ -1,7 +1,7 @@
 // app/admin/inventory/bottles/page.tsx
 'use client'
 
-import { Edit, Plus, Save, Trash2, X } from 'lucide-react'
+import { Edit, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 type Bottle = {
@@ -9,23 +9,158 @@ type Bottle = {
   name: string
   brand: string
   category: string
+  size: string // Required field in schema
   price: number
+  description: string
+  imageUrl: string // Now using imageUrl directly
+  inStock: boolean // Schema uses 'inStock' not 'available'
+  active: boolean
+}
+
+type BottleFormData = {
+  name: string
+  brand: string
+  category: string
+  size: string
+  price: string | number
   description: string
   imageUrl: string
   available: boolean
 }
 
 const categories = [
-  'Vodka',
-  'Whiskey',
-  'Tequila',
-  'Rum',
-  'Gin',
-  'Champagne',
-  'Wine',
-  'Cognac',
-  'Other',
+  'VODKA',
+  'WHISKEY',
+  'TEQUILA',
+  'RUM',
+  'GIN',
+  'CHAMPAGNE',
+  'WINE',
+  'COGNAC',
+  'LIQUEUR',
+  'OTHER',
 ]
+
+// Move Form component OUTSIDE to prevent re-creation on every render
+const BottleForm = ({
+  formData,
+  setFormData,
+}: {
+  formData: BottleFormData
+  setFormData: (data: BottleFormData) => void
+}) => (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Name
+      </label>
+      <input
+        type="text"
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        placeholder="Grey Goose"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Brand
+      </label>
+      <input
+        type="text"
+        value={formData.brand}
+        onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        placeholder="Grey Goose"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Size
+      </label>
+      <select
+        value={formData.size}
+        onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+      >
+        <option value="375ml">375ml (Half Bottle)</option>
+        <option value="750ml">750ml (Standard)</option>
+        <option value="1L">1L</option>
+        <option value="1.5L">1.5L (Magnum)</option>
+        <option value="3L">3L (Jeroboam)</option>
+      </select>
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Category
+      </label>
+      <select
+        value={formData.category}
+        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+      >
+        {categories.map((cat) => (
+          <option key={cat} value={cat}>
+            {cat}
+          </option>
+        ))}
+      </select>
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Price
+      </label>
+      <input
+        type="number"
+        value={formData.price}
+        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        placeholder="450"
+      />
+    </div>
+    <div className="md:col-span-2">
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Description
+      </label>
+      <textarea
+        value={formData.description}
+        onChange={(e) =>
+          setFormData({ ...formData, description: e.target.value })
+        }
+        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        rows={2}
+        placeholder="Premium French vodka..."
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Image URL
+      </label>
+      <input
+        type="text"
+        value={formData.imageUrl}
+        onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        placeholder="https://..."
+      />
+    </div>
+    <div className="flex items-center">
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={formData.available}
+          onChange={(e) =>
+            setFormData({ ...formData, available: e.target.checked })
+          }
+          className="w-4 h-4"
+        />
+        <span className="text-sm font-medium text-gray-700">
+          Available for booking
+        </span>
+      </label>
+    </div>
+  </div>
+)
 
 export default function BottlesManagement() {
   const [bottles, setBottles] = useState<Bottle[]>([])
@@ -33,11 +168,12 @@ export default function BottlesManagement() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isAdding, setIsAdding] = useState(false)
   const [filterCategory, setFilterCategory] = useState('ALL')
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<BottleFormData>({
     name: '',
     brand: '',
-    category: 'Vodka',
-    price: 0,
+    category: 'VODKA',
+    size: '750ml', // Default size
+    price: '' as string | number, // Allow string or number to handle empty input
     description: '',
     imageUrl: '',
     available: true,
@@ -65,10 +201,11 @@ export default function BottlesManagement() {
       name: bottle.name,
       brand: bottle.brand,
       category: bottle.category,
+      size: bottle.size,
       price: Number(bottle.price),
       description: bottle.description,
-      imageUrl: bottle.imageUrl,
-      available: bottle.available,
+      imageUrl: bottle.imageUrl, // Now using imageUrl directly
+      available: bottle.inStock,
     })
   }
 
@@ -77,8 +214,9 @@ export default function BottlesManagement() {
     setFormData({
       name: '',
       brand: '',
-      category: 'Vodka',
-      price: 0,
+      category: 'VODKA',
+      size: '750ml',
+      price: '',
       description: '',
       imageUrl: '',
       available: true,
@@ -91,8 +229,9 @@ export default function BottlesManagement() {
     setFormData({
       name: '',
       brand: '',
-      category: 'Vodka',
-      price: 0,
+      category: 'VODKA',
+      size: '750ml',
+      price: '',
       description: '',
       imageUrl: '',
       available: true,
@@ -101,31 +240,49 @@ export default function BottlesManagement() {
 
   const handleSave = async () => {
     try {
+      // Convert price to number
+      const priceValue =
+        typeof formData.price === 'string'
+          ? parseFloat(formData.price)
+          : formData.price
+
+      if (isNaN(priceValue)) {
+        alert('Please enter a valid price')
+        return
+      }
+
+      const payload = {
+        ...formData,
+        price: priceValue,
+      }
+
       if (isAdding) {
         const response = await fetch('/api/admin/bottles', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         })
 
         if (response.ok) {
           await fetchBottles()
           handleCancel()
         } else {
-          alert('Failed to create bottle')
+          const error = await response.json()
+          alert(error.error || 'Failed to create bottle')
         }
       } else if (editingId) {
         const response = await fetch(`/api/admin/bottles/${editingId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         })
 
         if (response.ok) {
           await fetchBottles()
           handleCancel()
         } else {
-          alert('Failed to update bottle')
+          const error = await response.json()
+          alert(error.error || 'Failed to update bottle')
         }
       }
     } catch (error) {
@@ -156,110 +313,6 @@ export default function BottlesManagement() {
 
   const filteredBottles = bottles.filter(
     (bottle) => filterCategory === 'ALL' || bottle.category === filterCategory
-  )
-
-  const Form = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Name
-        </label>
-        <input
-          type="text"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="Grey Goose"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Brand
-        </label>
-        <input
-          type="text"
-          value={formData.brand}
-          onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="Grey Goose"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Category
-        </label>
-        <select
-          value={formData.category}
-          onChange={(e) =>
-            setFormData({ ...formData, category: e.target.value })
-          }
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        >
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Price
-        </label>
-        <input
-          type="number"
-          value={formData.price}
-          onChange={(e) =>
-            setFormData({ ...formData, price: parseFloat(e.target.value) })
-          }
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="450"
-        />
-      </div>
-      <div className="md:col-span-2">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Description
-        </label>
-        <textarea
-          value={formData.description}
-          onChange={(e) =>
-            setFormData({ ...formData, description: e.target.value })
-          }
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          rows={2}
-          placeholder="Premium French vodka..."
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Image URL
-        </label>
-        <input
-          type="text"
-          value={formData.imageUrl}
-          onChange={(e) =>
-            setFormData({ ...formData, imageUrl: e.target.value })
-          }
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="https://..."
-        />
-      </div>
-      <div className="flex items-center">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={formData.available}
-            onChange={(e) =>
-              setFormData({ ...formData, available: e.target.checked })
-            }
-            className="w-4 h-4"
-          />
-          <span className="text-sm font-medium text-gray-700">
-            Available for booking
-          </span>
-        </label>
-      </div>
-    </div>
   )
 
   if (loading) {
@@ -300,7 +353,7 @@ export default function BottlesManagement() {
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
           >
             <option value="ALL">All Categories</option>
             {categories.map((cat) => (
@@ -309,29 +362,37 @@ export default function BottlesManagement() {
               </option>
             ))}
           </select>
-          <span className="ml-4 text-sm text-gray-600">
+          <p className="text-sm text-gray-500 mt-2">
             Showing {filteredBottles.length} bottles
-          </span>
+          </p>
         </div>
 
         {/* Add Form */}
         {isAdding && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-2xl font-bold mb-4">Add New Bottle</h2>
-            <Form />
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Add New Bottle
+              </h2>
+              <button
+                onClick={handleCancel}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <BottleForm formData={formData} setFormData={setFormData} />
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleSave}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-6 rounded-lg transition"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition"
               >
-                <Save className="w-5 h-5" />
-                Save
+                Save Bottle
               </button>
               <button
                 onClick={handleCancel}
-                className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-6 rounded-lg transition"
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg transition"
               >
-                <X className="w-5 h-5" />
                 Cancel
               </button>
             </div>
@@ -341,33 +402,39 @@ export default function BottlesManagement() {
         {/* Bottles Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredBottles.map((bottle) => (
-            <div
-              key={bottle.id}
-              className="bg-white rounded-lg shadow-md border-2 border-gray-200"
-            >
+            <div key={bottle.id} className="bg-white rounded-lg shadow">
               {editingId === bottle.id ? (
-                <div className="p-6">
-                  <h2 className="text-xl font-bold mb-4">Edit Bottle</h2>
-                  <Form />
-                  <div className="flex gap-3 mt-6">
-                    <button
-                      onClick={handleSave}
-                      className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition text-sm"
-                    >
-                      <Save className="w-4 h-4" />
-                      Save
-                    </button>
-                    <button
-                      onClick={handleCancel}
-                      className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition text-sm"
-                    >
-                      <X className="w-4 h-4" />
-                      Cancel
-                    </button>
+                <>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">
+                      Edit Bottle
+                    </h3>
+                    <BottleForm formData={formData} setFormData={setFormData} />
+                    <div className="flex gap-3 mt-6">
+                      <button
+                        onClick={handleSave}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancel}
+                        className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </>
               ) : (
                 <>
+                  {bottle.imageUrl && (
+                    <img
+                      src={bottle.imageUrl}
+                      alt={bottle.name}
+                      className="w-full h-48 object-cover rounded-t-lg"
+                    />
+                  )}
                   <div className="p-6">
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -383,7 +450,7 @@ export default function BottlesManagement() {
                         <div className="text-2xl font-bold text-emerald-600">
                           ${Number(bottle.price).toLocaleString()}
                         </div>
-                        {!bottle.available && (
+                        {!bottle.inStock && (
                           <span className="text-xs text-red-600 font-medium">
                             Unavailable
                           </span>
