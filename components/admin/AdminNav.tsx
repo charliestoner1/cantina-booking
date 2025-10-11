@@ -1,7 +1,7 @@
 // components/admin/AdminNav.tsx
 'use client'
 
-import { Calendar, LayoutDashboard, LogOut, Settings } from 'lucide-react'
+import { Calendar, LayoutDashboard, LogOut, Package } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -22,9 +22,9 @@ export function AdminNav() {
       description: 'View all reservations',
     },
     {
-      name: 'Settings',
-      href: '/admin/settings',
-      icon: Settings,
+      name: 'Inventory',
+      href: '/admin/inventory',
+      icon: Package,
       description: 'Manage tables & bottles',
     },
   ]
@@ -54,7 +54,9 @@ export function AdminNav() {
                 (item.href === '/admin/dashboard/tonight' &&
                   pathname.startsWith('/admin/dashboard/tonight')) ||
                 (item.href === '/admin/dashboard' &&
-                  pathname === '/admin/dashboard')
+                  pathname === '/admin/dashboard') ||
+                (item.href === '/admin/inventory' &&
+                  pathname.startsWith('/admin/inventory'))
 
               return (
                 <Link
