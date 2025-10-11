@@ -1,32 +1,32 @@
-// app/api/admin/bottles/[id]/route.ts
+// app/api/admin/tables/[id]/route.ts
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
-// GET single bottle
+// GET single table
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const bottle = await prisma.bottle.findUnique({
+    const table = await prisma.tableType.findUnique({
       where: { id: params.id },
     })
 
-    if (!bottle) {
-      return NextResponse.json({ error: 'Bottle not found' }, { status: 404 })
+    if (!table) {
+      return NextResponse.json({ error: 'Table not found' }, { status: 404 })
     }
 
-    return NextResponse.json(bottle)
+    return NextResponse.json(table)
   } catch (error) {
-    console.error('Error fetching bottle:', error)
+    console.error('Error fetching table:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch bottle' },
+      { error: 'Failed to fetch table' },
       { status: 500 }
     )
   }
 }
 
-// PATCH update bottle
+// PATCH update table
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -35,53 +35,68 @@ export async function PATCH(
     const body = await request.json()
     const {
       name,
-      brand,
-      category,
-      size,
-      price,
+      slug,
       description,
+      capacity,
+      baseMinimumSpend,
+      amenities,
       imageUrl,
-      available,
     } = body
 
-    const updatedBottle = await prisma.bottle.update({
+    // Check if slug already exists on another table
+    if (slug) {
+      const existing = await prisma.tableType.findFirst({
+        where: {
+          slug,
+          NOT: { id: params.id },
+        },
+      })
+
+      if (existing) {
+        return NextResponse.json(
+          { error: 'A table with this slug already exists' },
+          { status: 400 }
+        )
+      }
+    }
+
+    const updatedTable = await prisma.tableType.update({
       where: { id: params.id },
       data: {
         ...(name !== undefined && { name }),
-        ...(brand !== undefined && { brand }),
-        ...(category !== undefined && { category }),
-        ...(size !== undefined && { size }), // Required field
-        ...(price !== undefined && { price: parseFloat(price) }),
+        ...(slug !== undefined && { slug }),
         ...(description !== undefined && { description }),
-        ...(imageUrl !== undefined && { image: imageUrl }), // Schema uses 'image'
-        ...(available !== undefined && { inStock: available }),
+        ...(capacity !== undefined && { capacity: parseInt(capacity) }),
+        ...(baseMinimumSpend !== undefined && {
+          baseMinimumSpend: parseFloat(baseMinimumSpend),
+        }),
+        ...(amenities !== undefined && { amenities }),
+        ...(imageUrl !== undefined && { images: [imageUrl] }),
       },
     })
 
-    return NextResponse.json(updatedBottle)
+    return NextResponse.json(updatedTable)
   } catch (error) {
-    console.error('Error updating bottle:', error)
+    console.error('Error updating table:', error)
     return NextResponse.json(
-      { error: 'Failed to update bottle' },
+      { error: 'Failed to update table' },
       { status: 500 }
     )
   }
 }
 
-// DELETE bottle
+// DELETE table
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check if bottle is in any active reservations
-    const activeReservations = await prisma.reservationBottle.count({
+    // Check if there are any active reservations for this table
+    const activeReservations = await prisma.reservation.count({
       where: {
-        bottleId: params.id,
-        reservation: {
-          status: {
-            in: ['PENDING', 'CONFIRMED'],
-          },
+        tableTypeId: params.id,
+        status: {
+          in: ['PENDING', 'CONFIRMED'],
         },
       },
     })
@@ -90,21 +105,21 @@ export async function DELETE(
       return NextResponse.json(
         {
           error:
-            'Cannot delete bottle that is in active reservations. Mark as inactive instead.',
+            'Cannot delete table type with active reservations. Cancel reservations first.',
         },
         { status: 400 }
       )
     }
 
-    await prisma.bottle.delete({
+    await prisma.tableType.delete({
       where: { id: params.id },
     })
 
-    return NextResponse.json({ message: 'Bottle deleted successfully' })
+    return NextResponse.json({ message: 'Table deleted successfully' })
   } catch (error) {
-    console.error('Error deleting bottle:', error)
+    console.error('Error deleting table:', error)
     return NextResponse.json(
-      { error: 'Failed to delete bottle' },
+      { error: 'Failed to delete table' },
       { status: 500 }
     )
   }
