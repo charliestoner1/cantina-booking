@@ -9,7 +9,6 @@ type TableType = {
   name: string
   slug: string
   description: string
-  shortDescription: string
   capacity: number
   baseMinimumSpend: number
   amenities: string[]
@@ -25,7 +24,6 @@ export default function TablesManagement() {
     name: '',
     slug: '',
     description: '',
-    shortDescription: '',
     capacity: 0,
     baseMinimumSpend: 0,
     amenities: '',
@@ -54,7 +52,6 @@ export default function TablesManagement() {
       name: table.name,
       slug: table.slug,
       description: table.description,
-      shortDescription: table.shortDescription,
       capacity: table.capacity,
       baseMinimumSpend: Number(table.baseMinimumSpend),
       amenities: table.amenities.join(', '),
@@ -68,7 +65,6 @@ export default function TablesManagement() {
       name: '',
       slug: '',
       description: '',
-      shortDescription: '',
       capacity: 0,
       baseMinimumSpend: 0,
       amenities: '',
@@ -83,7 +79,6 @@ export default function TablesManagement() {
       name: '',
       slug: '',
       description: '',
-      shortDescription: '',
       capacity: 0,
       baseMinimumSpend: 0,
       amenities: '',
@@ -115,7 +110,8 @@ export default function TablesManagement() {
           await fetchTables()
           handleCancel()
         } else {
-          alert('Failed to create table')
+          const error = await response.json()
+          alert(`Failed to create table: ${error.error || 'Unknown error'}`)
         }
       } else if (editingId) {
         // Update existing table
@@ -129,7 +125,8 @@ export default function TablesManagement() {
           await fetchTables()
           handleCancel()
         } else {
-          alert('Failed to update table')
+          const error = await response.json()
+          alert(`Failed to update table: ${error.error || 'Unknown error'}`)
         }
       }
     } catch (error) {
@@ -149,7 +146,8 @@ export default function TablesManagement() {
       if (response.ok) {
         await fetchTables()
       } else {
-        alert('Failed to delete table')
+        const error = await response.json()
+        alert(`Failed to delete table: ${error.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error deleting table:', error)
@@ -187,10 +185,12 @@ export default function TablesManagement() {
           </button>
         </div>
 
-        {/* Add Form */}
-        {isAdding && (
+        {/* Add/Edit Form */}
+        {(isAdding || editingId) && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-2xl font-bold mb-4">Add New Table Type</h2>
+            <h2 className="text-2xl font-bold mb-4">
+              {isAdding ? 'Add New Table Type' : 'Edit Table Type'}
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -222,23 +222,6 @@ export default function TablesManagement() {
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Short Description
-                </label>
-                <input
-                  type="text"
-                  value={formData.shortDescription}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      shortDescription: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  placeholder="Elevated views and premium seating"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description
                 </label>
                 <textarea
@@ -257,11 +240,11 @@ export default function TablesManagement() {
                 </label>
                 <input
                   type="number"
-                  value={formData.capacity}
+                  value={formData.capacity || ''}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      capacity: parseInt(e.target.value),
+                      capacity: parseInt(e.target.value) || 0,
                     })
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -274,11 +257,11 @@ export default function TablesManagement() {
                 </label>
                 <input
                   type="number"
-                  value={formData.baseMinimumSpend}
+                  value={formData.baseMinimumSpend || ''}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      baseMinimumSpend: parseInt(e.target.value),
+                      baseMinimumSpend: parseFloat(e.target.value) || 0,
                     })
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -293,10 +276,13 @@ export default function TablesManagement() {
                   type="text"
                   value={formData.amenities}
                   onChange={(e) =>
-                    setFormData({ ...formData, amenities: e.target.value })
+                    setFormData({
+                      ...formData,
+                      amenities: e.target.value,
+                    })
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  placeholder="Premium seating, Elevated view, Dedicated server"
+                  placeholder="Premium seating, private server, behind DJ"
                 />
               </div>
               <div>
@@ -317,16 +303,16 @@ export default function TablesManagement() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleSave}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-6 rounded-lg transition"
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition"
               >
-                <Save className="w-5 h-5" />
+                <Save className="w-4 h-4" />
                 Save
               </button>
               <button
                 onClick={handleCancel}
-                className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-6 rounded-lg transition"
+                className="flex items-center gap-2 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
                 Cancel
               </button>
             </div>
@@ -338,217 +324,76 @@ export default function TablesManagement() {
           {tables.map((table) => (
             <div
               key={table.id}
-              className="bg-white rounded-lg shadow-md p-6 border-2 border-gray-200"
+              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
             >
-              {editingId === table.id ? (
-                // Edit Mode
-                <div>
-                  <h2 className="text-2xl font-bold mb-4">Edit Table Type</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Name
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.name}
-                        onChange={(e) =>
-                          setFormData({ ...formData, name: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Slug
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.slug}
-                        onChange={(e) =>
-                          setFormData({ ...formData, slug: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Short Description
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.shortDescription}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            shortDescription: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        value={formData.description}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            description: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                        rows={3}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Capacity
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.capacity}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            capacity: parseInt(e.target.value),
-                          })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Base Minimum Spend
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.baseMinimumSpend}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            baseMinimumSpend: parseInt(e.target.value),
-                          })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Amenities (comma-separated)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.amenities}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            amenities: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Image URL
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.imageUrl}
-                        onChange={(e) =>
-                          setFormData({ ...formData, imageUrl: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-3 mt-6">
-                    <button
-                      onClick={handleSave}
-                      className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-6 rounded-lg transition"
-                    >
-                      <Save className="w-5 h-5" />
-                      Save
-                    </button>
-                    <button
-                      onClick={handleCancel}
-                      className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-6 rounded-lg transition"
-                    >
-                      <X className="w-5 h-5" />
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                // View Mode
+              {editingId === table.id ? null : ( // Edit mode handled above
+                // View mode
                 <div>
                   <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-900">
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">
                         {table.name}
-                      </h2>
-                      <p className="text-sm text-gray-500">/{table.slug}</p>
-                      <p className="text-gray-600 mt-1">
-                        {table.shortDescription}
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-2">
+                        Slug: {table.slug}
                       </p>
+                      <p className="text-gray-700 mb-3">{table.description}</p>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-semibold">Capacity:</span>{' '}
+                          {table.capacity} guests
+                        </div>
+                        <div>
+                          <span className="font-semibold">Minimum Spend:</span>{' '}
+                          ${Number(table.baseMinimumSpend).toFixed(2)}
+                        </div>
+                      </div>
+                      {table.amenities.length > 0 && (
+                        <div className="mt-3">
+                          <span className="font-semibold text-sm">
+                            Amenities:
+                          </span>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {table.amenities.map((amenity, idx) => (
+                              <span
+                                key={idx}
+                                className="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded"
+                              >
+                                {amenity}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 ml-4">
                       <button
                         onClick={() => handleEdit(table)}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition"
+                        className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition"
+                        title="Edit"
                       >
                         <Edit className="w-4 h-4" />
-                        Edit
                       </button>
                       <button
                         onClick={() => handleDelete(table.id)}
-                        className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition"
+                        className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition"
+                        title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />
-                        Delete
                       </button>
                     </div>
                   </div>
-
-                  <p className="text-gray-700 mb-4">{table.description}</p>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div>
-                      <span className="text-sm text-gray-600">Capacity:</span>
-                      <p className="font-semibold">{table.capacity} guests</p>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-600">
-                        Minimum Spend:
-                      </span>
-                      <p className="font-semibold">
-                        ${Number(table.baseMinimumSpend).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {table.amenities.length > 0 && (
-                    <div>
-                      <span className="text-sm text-gray-600">Amenities:</span>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {table.amenities.map((amenity, idx) => (
-                          <span
-                            key={idx}
-                            className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-sm"
-                          >
-                            {amenity}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
           ))}
+
+          {tables.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              <p className="text-xl mb-2">No tables yet</p>
+              <p>Click "Add Table Type" to create your first table</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -22,7 +22,6 @@ model TableType {
   name             String
   slug             String           @unique
   description      String
-  shortDescription String
   capacity         Int
   section          String
   amenities        String[]

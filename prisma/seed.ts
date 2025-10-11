@@ -38,7 +38,6 @@ async function main() {
         slug: 'regular-table',
         description:
           'Perfect for small groups looking for an intimate dining experience with premium bottle service.',
-        shortDescription: 'Intimate seating for small groups',
         capacity: 6,
         section: 'Main Floor',
         amenities: [
@@ -61,7 +60,6 @@ async function main() {
         slug: 'vip-booth',
         description:
           'Exclusive VIP booths with premium bottle service, dedicated cocktail server, and prime location overlooking the main floor.',
-        shortDescription: 'Exclusive VIP experience with premium service',
         capacity: 10,
         section: 'VIP Section',
         amenities: [
@@ -86,7 +84,6 @@ async function main() {
         slug: 'balcony-table',
         description:
           'Elevated experience with panoramic views of the venue, perfect for special celebrations.',
-        shortDescription: 'Elevated seating with panoramic views',
         capacity: 8,
         section: 'Balcony Level',
         amenities: [
@@ -110,7 +107,6 @@ async function main() {
         slug: 'dance-floor-table',
         description:
           'High-energy tables right next to the dance floor. Perfect for groups who want to be at the center of the action.',
-        shortDescription: 'High-energy seating by the dance floor',
         capacity: 12,
         section: 'Dance Floor',
         amenities: [

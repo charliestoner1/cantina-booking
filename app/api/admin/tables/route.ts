@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
       name,
       slug,
       description,
-      shortDescription, // ADD THIS
       capacity,
       baseMinimumSpend,
       amenities,
@@ -37,14 +36,7 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate required fields
-    if (
-      !name ||
-      !slug ||
-      !description ||
-      !shortDescription ||
-      !capacity ||
-      !baseMinimumSpend
-    ) {
+    if (!name || !slug || !description || !capacity || !baseMinimumSpend) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -68,11 +60,11 @@ export async function POST(request: NextRequest) {
         name,
         slug,
         description,
-        shortDescription, // ADD THIS
         capacity: parseInt(capacity),
         baseMinimumSpend: parseFloat(baseMinimumSpend),
         amenities: amenities || [],
-        imageUrl: imageUrl || '',
+        section: 'main', // Default section
+        images: imageUrl ? [imageUrl] : [], // Convert single URL to array
       },
     })
 

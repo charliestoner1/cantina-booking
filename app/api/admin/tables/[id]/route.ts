@@ -17,7 +17,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       name,
       slug,
       description,
-      shortDescription, // ADD THIS
       capacity,
       baseMinimumSpend,
       amenities,
@@ -47,7 +46,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ...(name && { name }),
         ...(slug && { slug }),
         ...(description && { description }),
-        ...(shortDescription && { shortDescription }),
         ...(capacity && { capacity: parseInt(capacity) }),
         ...(baseMinimumSpend && {
           baseMinimumSpend: parseFloat(baseMinimumSpend),
