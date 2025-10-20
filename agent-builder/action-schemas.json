@@ -1,0 +1,152 @@
+{
+  "actions": [
+    {
+      "name": "get_bookings",
+      "description": "Return all reservations for a given date and optional shift (evening/all)",
+      "method": "POST",
+      "url": "/api/agent/get_bookings",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          },
+          "shift": {
+            "type": "string",
+            "enum": [
+              "evening",
+              "all"
+            ],
+            "default": "all"
+          }
+        },
+        "required": [
+          "date"
+        ]
+      }
+    },
+    {
+      "name": "get_inventory",
+      "description": "Look up on-hand bottle inventory by SKU or name",
+      "method": "POST",
+      "url": "/api/agent/get_inventory",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "skuOrName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "skuOrName"
+        ]
+      }
+    },
+    {
+      "name": "place_inventory_order",
+      "description": "Create a vendor purchase order for a specific SKU and quantity. Requires confirmation.",
+      "method": "POST",
+      "url": "/api/agent/place_inventory_order",
+      "headers": {
+        "X-Idempotency-Key": "{{random_uuid}}"
+      },
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "vendorId": {
+            "type": "string"
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "userId": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "sku",
+          "qty",
+          "vendorId"
+        ]
+      }
+    },
+    {
+      "name": "list_table_groups",
+      "description": "Resolve human group labels (e.g., 'dance-floor') to TableType IDs",
+      "method": "POST",
+      "url": "/api/agent/list_table_groups",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "groupSlug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "groupSlug"
+        ]
+      }
+    },
+    {
+      "name": "set_table_minimum",
+      "description": "Upsert WEEKDAY/WEEKEND pricing rules to the given minimum for listed TableType IDs. Requires confirmation.",
+      "method": "POST",
+      "url": "/api/agent/set_table_minimum",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "tableTypeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "minimum": {
+            "type": "number",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "default": "USD"
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "userId": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "tableTypeIds",
+          "minimum"
+        ]
+      }
+    }
+  ],
+  "policies": {
+    "confirm_before_mutation": [
+      "place_inventory_order",
+      "set_table_minimum"
+    ],
+    "timezone": "America/New_York"
+  }
+}

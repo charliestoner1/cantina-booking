@@ -65,10 +65,12 @@ model PricingRule {
   endDate      DateTime?
   priority     Int       @default(0)
   active       Boolean   @default(true)
+  isDefault    Boolean   @default(false) // default/base rule (no date range)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   tableType    TableType @relation(fields: [tableTypeId], references: [id], onDelete: Cascade)
 
+  @@unique([tableTypeId, dayType, isDefault]) // lets us upsert default rules cleanly
   @@index([tableTypeId, startDate, endDate])
 }
 
@@ -87,6 +89,11 @@ model Bottle {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   reservationBottles ReservationBottle[]
+
+  // Stock/ops fields
+  onHand Int     @default(0)
+  par    Int     @default(0)
+  sku    String? @unique
 
   @@index([category, active])
 }
