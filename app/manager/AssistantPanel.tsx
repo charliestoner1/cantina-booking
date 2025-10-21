@@ -12,7 +12,10 @@ export default function AssistantPanel() {
       ): Promise<string> {
         try {
           const r = await fetch('/api/chatkit/session', { method: 'POST' })
-          if (!r.ok) throw new Error(`Session ${r.status}`)
+          if (!r.ok) {
+            const text = await r.text()
+            throw new Error(`Session ${r.status} ${text}`)
+          }
           const j: { client_secret: string } = await r.json()
           return j.client_secret
         } catch (e: unknown) {
@@ -21,6 +24,27 @@ export default function AssistantPanel() {
         }
       },
     },
+    // CRITICAL: This handler is required for client tools to work
+    onClientTool: async ({ name, params }) => {
+      console.log('[client-tool]', name, params)
+      const res = await fetch(`/api/chatkit/tools/${name}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params ?? {}),
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(`Tool ${name} failed: ${res.status} ${text}`)
+      }
+      return await res.json()
+    },
+    onError: ({ error }) => {
+      console.error('[chatkit:error]', error)
+      setErr(error?.message ?? 'Unknown error')
+    },
+    onLog: ({ name, data }) => console.debug('[chatkit]', name, data),
+    onResponseStart: () => console.info('[chatkit] streaming start'),
+    onResponseEnd: () => console.info('[chatkit] streaming end'),
   })
 
   return (
