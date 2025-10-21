@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "seed": "tsx prisma/seed.ts",
+    "generate-data": "tsx scripts/generate-test-data.ts",
     "start": "next start",
     "lint": "next lint",
     "db:push": "prisma db push",
@@ -14,6 +16,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.67.0",
     "@hookform/resolvers": "^3.3.4",
     "@openai/agents": "^0.1.9",
     "@openai/chatkit-react": "^1.1.1",
